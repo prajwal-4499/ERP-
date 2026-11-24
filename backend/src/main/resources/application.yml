@@ -1,0 +1,69 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: cloth-shop-erp-backend
+  profiles:
+    active: dev
+
+  datasource:
+    # Default to H2 embedded for instant standalone desktop mode / zero friction
+    url: jdbc:h2:file:./data/clothshoperp;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ""
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false # Set to true when running on MySQL production
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000 # 24 hours
+  security:
+    invoice-edit-pin-hash: "$2a$10$7zB3c9wK1q7e8u5r4v3w2e1r0t9y8u7i6o5p4a3s2d1f0g9h8j7k" # default PIN: 1234
+  backup:
+    directory: ./backups
+    google-drive:
+      enabled: false
+      folder-id: ""
+  tax:
+    default-gst-rate: 5.0
+    cgst-rate: 2.5
+    sgst-rate: 2.5
+    hsn-code-default: "6205"
+
+---
+# MySQL Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:mysql://localhost:3306/cloth_shop_erp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    driverClassName: com.mysql.cj.jdbc.Driver
+    username: root
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true

@@ -1,5 +1,22 @@
 import { create } from 'zustand';
-import { User, UserRole } from '../types';
+import { User, UserRole, StoreProfile } from '../types';
+
+export const defaultStoreProfile: StoreProfile = {
+  id: 1,
+  name: 'Shravani Collection & New SK Telors',
+  branch: 'Pargaon (Mangrul)',
+  tagline: '& New SK Telors',
+  gstin: '27AABCU9603R1ZM',
+  phone: '8999308582',
+  email: 'contact@shravanicollection.com',
+  address: 'Pargaon (Mangrul), Taluka Kavathe Mahankal, Sangli',
+  stateCode: '27',
+  stateName: 'Maharashtra',
+  pincode: '416410',
+  upiId: '8999308582@ybl',
+  thermalFooter: 'Goods once sold can be exchanged within 7 days with bill. Thank you! Visit again.',
+  createdAt: '2026-01-01',
+};
 
 export interface RolePermissionsMap {
   [moduleOrAction: string]: boolean;
@@ -209,14 +226,8 @@ interface AuthState {
   user: User | null;
   token: string | null;
   availableUsers: User[];
-  activeStore: {
-    id: number;
-    name: string;
-    branch: string;
-    gstin: string;
-    phone: string;
-    address: string;
-  };
+  activeStore: StoreProfile;
+  registeredStores: StoreProfile[];
   isAuthenticated: boolean;
   customRolePermissions: Record<string, RolePermissionsMap>;
 
@@ -228,7 +239,36 @@ interface AuthState {
   hasRole: (role: UserRole | UserRole[]) => boolean;
   updateRolePermission: (role: UserRole, permission: string, allowed: boolean) => void;
   resetDefaultPermissions: () => void;
+  updateActiveStore: (updatedFields: Partial<StoreProfile>) => void;
+  registerNewStore: (newStore: Omit<StoreProfile, 'id' | 'createdAt'>) => StoreProfile;
+  switchActiveStore: (storeId: number) => void;
 }
+
+const loadActiveStore = (): StoreProfile => {
+  try {
+    const raw = localStorage.getItem('cloth_shop_erp_active_store');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.name) return { ...defaultStoreProfile, ...parsed };
+    }
+  } catch (e) {
+    console.warn('Error reading active store from localStorage', e);
+  }
+  return defaultStoreProfile;
+};
+
+const loadRegisteredStores = (): StoreProfile[] => {
+  try {
+    const raw = localStorage.getItem('cloth_shop_erp_stores');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Error reading registered stores from localStorage', e);
+  }
+  return [defaultStoreProfile];
+};
 
 const loadCustomPermissions = (): Record<string, RolePermissionsMap> => {
   try {
@@ -264,14 +304,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialUser,
   token: initialUser ? (localStorage.getItem('auth_token') || 'local-session-active-token') : null,
   availableUsers: defaultUsers,
-  activeStore: {
-    id: 1,
-    name: 'Shravani Collection & New SK Telors',
-    branch: 'Pargaon (Mangrul)',
-    gstin: '27AABCU9603R1ZM',
-    phone: '8999308582',
-    address: 'Pargaon (Mangrul), Taluka Kavathe Mahankal, Sangli',
-  },
+  activeStore: loadActiveStore(),
+  registeredStores: loadRegisteredStores(),
   isAuthenticated: initialUser !== null,
   customRolePermissions: loadCustomPermissions(),
 
@@ -358,5 +392,60 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.removeItem('cloth_shop_erp_role_permissions');
     } catch (e) {}
     set({ customRolePermissions: {} });
+  },
+
+  updateActiveStore: (updatedFields: Partial<StoreProfile>) => {
+    const current = get().activeStore;
+    const merged: StoreProfile = { ...current, ...updatedFields };
+    const allStores = get().registeredStores.map((s) => (s.id === merged.id ? merged : s));
+    try {
+      localStorage.setItem('cloth_shop_erp_active_store', JSON.stringify(merged));
+      localStorage.setItem('cloth_shop_erp_stores', JSON.stringify(allStores));
+      if (updatedFields.stateCode) {
+        const rawSettings = localStorage.getItem('cloth_shop_erp_settings');
+        const settings = rawSettings ? JSON.parse(rawSettings) : {};
+        settings.storeStateCode = updatedFields.stateCode;
+        localStorage.setItem('cloth_shop_erp_settings', JSON.stringify(settings));
+      }
+    } catch (e) {
+      console.warn('Error saving store profile update', e);
+    }
+    set({ activeStore: merged, registeredStores: allStores });
+  },
+
+  registerNewStore: (newStoreData: Omit<StoreProfile, 'id' | 'createdAt'>) => {
+    const newStore: StoreProfile = {
+      ...newStoreData,
+      id: Date.now(),
+      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    };
+    const updatedStores = [...get().registeredStores, newStore];
+    try {
+      localStorage.setItem('cloth_shop_erp_active_store', JSON.stringify(newStore));
+      localStorage.setItem('cloth_shop_erp_stores', JSON.stringify(updatedStores));
+      const rawSettings = localStorage.getItem('cloth_shop_erp_settings');
+      const settings = rawSettings ? JSON.parse(rawSettings) : {};
+      settings.storeStateCode = newStore.stateCode;
+      localStorage.setItem('cloth_shop_erp_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn('Error registering new store', e);
+    }
+    set({ activeStore: newStore, registeredStores: updatedStores });
+    return newStore;
+  },
+
+  switchActiveStore: (storeId: number) => {
+    const target = get().registeredStores.find((s) => s.id === storeId);
+    if (!target) return;
+    try {
+      localStorage.setItem('cloth_shop_erp_active_store', JSON.stringify(target));
+      const rawSettings = localStorage.getItem('cloth_shop_erp_settings');
+      const settings = rawSettings ? JSON.parse(rawSettings) : {};
+      settings.storeStateCode = target.stateCode;
+      localStorage.setItem('cloth_shop_erp_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn('Error switching active store', e);
+    }
+    set({ activeStore: target });
   },
 }));

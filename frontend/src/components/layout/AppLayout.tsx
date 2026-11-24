@@ -168,9 +168,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             <Shirt className="w-5 h-5 text-white" />
           </div>
           <div className="overflow-hidden">
-            <h1 className="font-extrabold text-xs text-white tracking-wide truncate">SHRAVANI COLLECTION</h1>
+            <h1 className="font-extrabold text-xs text-white tracking-wide truncate">{activeStore.name}</h1>
             <p className="text-[10px] font-medium text-emerald-400 truncate flex items-center gap-1">
-              &amp; New SK Telors
+              {activeStore.tagline || activeStore.branch}
             </p>
           </div>
         </div>

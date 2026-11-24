@@ -334,10 +334,11 @@ sequenceDiagram
 ## 3. Core Features & Functionality
 
 ### 3.1 Executive Business Dashboard
-- **What It Does:** Serves as the central executive cockpit displaying retail performance metrics, revenue growth, profit margin breakdowns, customer acquisition metrics, and garment category sales.
+- **What It Does:** Serves as the central executive cockpit displaying retail performance metrics, revenue growth, profit margin breakdowns, customer acquisition metrics, and garment departmental sales segments.
 - **Under the Hood:**
-  - Aggregates live transaction counts, customer Khata balances, and inventory valuation via `api.getDashboardMetrics()`.
-  - Renders monthly revenue trends using `recharts` `<BarChart>` and sales distributions using `<PieChart>` donut charts.
+  - Aggregates live transaction counts, customer Khata balances, inventory valuation, and departmental category revenue via `api.getDashboardMetrics()`.
+  - **Garment Revenue by Segment Engine:** Renders dynamic retail department revenue shares (`Formal & Casual Menswear`, `Womenswear & Pure Silk Sarees`, `Kids & Teen Festive Wear`, `Suiting & Shirting Fabrics`, `Tailoring & Custom Stitching`) using `recharts` open donut `<PieChart>` with dynamic legend dots and tooltips.
+  - **Business Unit Performance Table:** Synchronizes departmental sales, revenue amounts (₹), unit sales, QoQ growth percentages, gross margins, and performance status badges.
   - Generates immediate client-side CSV downloads formatted for quarterly business reporting (`Executive_Summary_Report.csv`).
 - **Relevant Files:**
   - `frontend/src/pages/dashboard/DashboardPage.tsx`
@@ -544,12 +545,18 @@ sequenceDiagram
   - `frontend/src/pages/backup/BackupPage.tsx`
   - `backend/src/main/resources/application.yml` (`app.backup`)
 
-### 3.19 Configurable Keyboard Shortcuts & System Settings
-- **What It Does:** Customizes store details (branch name, address, GSTIN, phone), default GST tax rates, inventory policies (`blockNegativeStock`), thermal printer hardware, and interactive keyboard shortcuts (F2 through F10).
+### 3.19 Shop Registration, Multi-Store Outlets & System Settings
+- **What It Does:** Manages complete store registration (business trade name, branch location, tagline, 15-digit GSTIN, phone, address, state code, UPI ID, and thermal receipt terms), supports multi-shop onboarding and switching, default GST tax rates, inventory policies (`blockNegativeStock`), thermal printer hardware, and interactive keyboard shortcuts (F2 through F10).
 - **Under the Hood:**
+  - **Whole New Shop Registration:** Allows business owners to onboard a whole new shop/branch via `registerNewStore` in `useAuthStore` with auto-detected GST state codes (e.g. `27` for Maharashtra). Persists to `cloth_shop_erp_active_store` and `cloth_shop_erp_stores`.
+  - **Multi-Branch Switching:** Enables switching between registered shop branches instantly; updates headers, thermal prints, WhatsApp receipts, and tax calculations in real time.
   - `useShortcutStore` provides live key capture: cashiers can select an action (e.g., Cash Payment) and press any key combination (e.g., `F5`) to re-bind it.
   - Settings persist in `SystemSetting` models and localStorage `cloth_shop_erp_settings`.
 - **Relevant Files:**
+  - `frontend/src/pages/settings/SettingsPage.tsx`
+  - `frontend/src/stores/authStore.ts`
+  - `frontend/src/stores/shortcutStore.ts`
+  - `backend/src/main/resources/application.yml` (`app.tax`, `app.security`)
   - `frontend/src/pages/settings/SettingsPage.tsx`
   - `frontend/src/stores/shortcutStore.ts`
   - `backend/src/main/java/com/clothshop/erp/model/SystemSetting.java`

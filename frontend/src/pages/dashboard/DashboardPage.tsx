@@ -26,7 +26,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { api } from '../../services/api';
-import { Customer } from '../../types';
+import { Customer, RevenueSegment } from '../../types';
 import {
   sendBirthdayGreetingWhatsApp,
   sendAnniversaryGreetingWhatsApp,
@@ -49,12 +49,63 @@ const revenueTrendData = [
   { month: 'Dec', revenue: 26.0 },
 ];
 
-// Open donut / semi-gauge segment data matching reference image colors
-const segmentData = [
-  { name: 'Enterprise', value: 45, color: '#2563EB' },
-  { name: 'SMB', value: 25, color: '#10B981' },
-  { name: 'Consumer', value: 15, color: '#F59E0B' },
-  { name: 'Wholesale', value: 15, color: '#8B5CF6' },
+// Defined Garment & Retail Segments
+const defaultGarmentSegments: RevenueSegment[] = [
+  {
+    name: 'Formal & Casual Menswear',
+    department: 'Menswear & Denims',
+    value: 42,
+    revenueAmount: 52320,
+    itemsSold: 48,
+    growth: '+24%',
+    margin: '42%',
+    status: 'High Growth',
+    color: '#2563EB',
+  },
+  {
+    name: 'Womenswear & Silk Sarees',
+    department: 'Ethnic & Sarees',
+    value: 28,
+    revenueAmount: 34880,
+    itemsSold: 32,
+    growth: '+18%',
+    margin: '48%',
+    status: 'High Margin',
+    color: '#10B981',
+  },
+  {
+    name: 'Kids & Teen Festive Wear',
+    department: 'Kids & Children',
+    value: 15,
+    revenueAmount: 18680,
+    itemsSold: 24,
+    growth: '+12%',
+    margin: '38%',
+    status: 'Stable',
+    color: '#F59E0B',
+  },
+  {
+    name: 'Suiting & Shirting Fabrics',
+    department: 'Cut-Piece / Meter Fabrics',
+    value: 10,
+    revenueAmount: 12450,
+    itemsSold: 18,
+    growth: '+15%',
+    margin: '35%',
+    status: 'Popular',
+    color: '#8B5CF6',
+  },
+  {
+    name: 'Tailoring & Stitching',
+    department: 'Bespoke Tailoring',
+    value: 5,
+    revenueAmount: 6250,
+    itemsSold: 12,
+    growth: '+9%',
+    margin: '62%',
+    status: 'Consistent',
+    color: '#EC4899',
+  },
 ];
 
 export const DashboardPage: React.FC = () => {
@@ -68,6 +119,8 @@ export const DashboardPage: React.FC = () => {
     supplierPayables: 128500,
     stockValue: 845000,
   });
+
+  const [segmentData, setSegmentData] = useState<RevenueSegment[]>(defaultGarmentSegments);
 
   const [alerts, setAlerts] = useState<{
     birthdaysToday: Customer[];
@@ -84,6 +137,9 @@ export const DashboardPage: React.FC = () => {
     api.getDashboardMetrics().then((data) => {
       if (data) {
         setMetrics((prev) => ({ ...prev, ...data }));
+        if (data.revenueBySegment && Array.isArray(data.revenueBySegment) && data.revenueBySegment.length > 0) {
+          setSegmentData(data.revenueBySegment);
+        }
       }
     });
     api.getTodayAlerts().then((data) => {
@@ -420,6 +476,7 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
           <div className="mb-2">
             <h3 className="font-bold text-base text-[#1F2937]">Revenue by Segment</h3>
+            <p className="text-[11px] text-gray-500 font-medium">Departmental sales share across retail categories</p>
           </div>
 
           {/* Open Donut Gauge */}
@@ -444,26 +501,25 @@ export const DashboardPage: React.FC = () => {
                 </Pie>
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1F2937', color: '#fff', borderRadius: '10px', fontSize: '12px', border: 'none' }}
-                  formatter={(val: any) => [`${val}%`, 'Share']}
+                  formatter={(val: any, name: any, item: any) => {
+                    const rawVal = item?.payload?.value ?? val ?? 0;
+                    const amt = item?.payload?.revenueAmount ? ` (₹${Number(item.payload.revenueAmount).toLocaleString()})` : '';
+                    return [`${rawVal}%${amt}`, item?.payload?.name || name || 'Segment'];
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Legend Dots matching Reference Image */}
-          <div className="flex items-center justify-center gap-6 pt-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-              <span className="w-3 h-3 rounded-full bg-[#2563EB]" />
-              <span>Enterprise</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-              <span className="w-3 h-3 rounded-full bg-[#10B981]" />
-              <span>SMB</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-              <span className="w-3 h-3 rounded-full bg-[#F59E0B]" />
-              <span>Consumer</span>
-            </div>
+          {/* Dynamic Garment Department Legend */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-2">
+            {segmentData.map((seg, idx) => (
+              <div key={idx} className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                <span>{seg.name}</span>
+                <span className="font-mono text-gray-400 text-[11px]">({seg.value}%)</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -471,15 +527,20 @@ export const DashboardPage: React.FC = () => {
       {/* Bottom Section: Business Unit Performance */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-          <h3 className="font-bold text-base text-[#1F2937]">Business Unit Performance</h3>
-          <span className="text-xs font-medium text-gray-500 font-mono">Real-time Retail Tracking</span>
+          <div>
+            <h3 className="font-bold text-base text-[#1F2937]">Business Unit &amp; Department Performance</h3>
+            <p className="text-xs text-gray-500 font-medium">Real-time apparel retail tracking by department segment</p>
+          </div>
+          <span className="text-xs font-bold text-emerald-600 font-mono bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+            Active Store Tracking
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold">
               <tr>
-                <th className="p-3.5 rounded-l-xl">Division / Department</th>
+                <th className="p-3.5 rounded-l-xl">Department / Division</th>
                 <th className="p-3.5">Key Category</th>
                 <th className="p-3.5 text-right">Revenue Share</th>
                 <th className="p-3.5 text-right">QoQ Growth</th>
@@ -488,42 +549,34 @@ export const DashboardPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-gray-700 font-medium">
-              <tr className="hover:bg-gray-50/80 transition">
-                <td className="p-3.5 font-bold text-[#1F2937]">Formal Menswear</td>
-                <td className="p-3.5">Oxford Shirts &amp; Chinos</td>
-                <td className="p-3.5 text-right font-mono font-bold">₹1.12 Cr</td>
-                <td className="p-3.5 text-right font-bold text-[#10B981]">+24%</td>
-                <td className="p-3.5 text-right font-mono">42%</td>
-                <td className="p-3.5 text-center">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#10B981] border border-emerald-200">
-                    High Growth
-                  </span>
-                </td>
-              </tr>
-              <tr className="hover:bg-gray-50/80 transition">
-                <td className="p-3.5 font-bold text-[#1F2937]">Denim &amp; Casuals</td>
-                <td className="p-3.5">Stretch Slim-Fit Jeans</td>
-                <td className="p-3.5 text-right font-mono font-bold">₹84.0 L</td>
-                <td className="p-3.5 text-right font-bold text-[#10B981]">+16%</td>
-                <td className="p-3.5 text-right font-mono">36%</td>
-                <td className="p-3.5 text-center">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#10B981] border border-emerald-200">
-                    Strong
-                  </span>
-                </td>
-              </tr>
-              <tr className="hover:bg-gray-50/80 transition">
-                <td className="p-3.5 font-bold text-[#1F2937]">Ethnic Silk &amp; Sarees</td>
-                <td className="p-3.5">Kanjivaram Handloom</td>
-                <td className="p-3.5 text-right font-mono font-bold">₹49.0 L</td>
-                <td className="p-3.5 text-right font-bold text-[#10B981]">+8%</td>
-                <td className="p-3.5 text-right font-mono">48%</td>
-                <td className="p-3.5 text-center">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB] border border-blue-200">
-                    High Margin
-                  </span>
-                </td>
-              </tr>
+              {segmentData.map((seg, idx) => (
+                <tr key={idx} className="hover:bg-gray-50/80 transition">
+                  <td className="p-3.5 font-bold text-[#1F2937] flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                    <span>{seg.name}</span>
+                  </td>
+                  <td className="p-3.5 text-gray-600">{seg.department}</td>
+                  <td className="p-3.5 text-right font-mono font-bold text-gray-900">
+                    ₹{Number(seg.revenueAmount).toLocaleString()}{' '}
+                    <span className="text-gray-400 text-[11px] font-normal">({seg.value}%)</span>
+                  </td>
+                  <td className="p-3.5 text-right font-bold text-[#10B981]">{seg.growth}</td>
+                  <td className="p-3.5 text-right font-mono">{seg.margin}</td>
+                  <td className="p-3.5 text-center">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        seg.status === 'High Growth'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : seg.status === 'High Margin'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-purple-50 text-purple-700 border-purple-200'
+                      }`}
+                    >
+                      {seg.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

@@ -148,6 +148,35 @@ export interface Invoice {
   }[];
 }
 
+export interface StoreProfile {
+  id: number;
+  name: string;
+  branch: string;
+  tagline?: string;
+  gstin: string;
+  phone: string;
+  email?: string;
+  address: string;
+  stateCode: string; // e.g. "27"
+  stateName: string; // e.g. "Maharashtra"
+  pincode?: string;
+  upiId?: string;
+  thermalFooter?: string;
+  createdAt?: string;
+}
+
+export interface RevenueSegment {
+  name: string;
+  department: string;
+  value: number; // percentage share e.g. 40
+  revenueAmount: number; // calculated revenue e.g. 49832
+  itemsSold: number;
+  growth: string; // e.g. "+24%"
+  margin: string; // e.g. "42%"
+  status: string; // e.g. "High Growth"
+  color: string;
+}
+
 export interface StoreCreditNote {
   id: number;
   noteNumber: string;

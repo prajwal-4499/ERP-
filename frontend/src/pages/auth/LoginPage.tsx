@@ -21,7 +21,7 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { availableUsers, login, activeStore } = useAuthStore();
+  const { availableUsers, login, activeStore, registeredStores, switchActiveStore } = useAuthStore();
 
   const [selectedStaff, setSelectedStaff] = useState<User | null>(availableUsers[0] || null);
   const [usernameInput, setUsernameInput] = useState('');
@@ -143,10 +143,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 Garment ERP &amp; POS
               </span>
               <h1 className="text-2xl font-black tracking-tight text-white mt-1 leading-snug">
-                SHRAVANI COLLECTION
+                {activeStore.name}
               </h1>
               <p className="text-emerald-300 font-bold text-sm tracking-wide">
-                &amp; New SK Telors
+                {activeStore.tagline || activeStore.branch}
               </p>
             </div>
 
@@ -163,6 +163,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <span>Ph: {activeStore.phone}</span>
               </div>
             </div>
+
+            {registeredStores && registeredStores.length > 1 && (
+              <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 space-y-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                  Select Store / Branch:
+                </label>
+                <select
+                  value={activeStore.id}
+                  onChange={(e) => switchActiveStore(Number(e.target.value))}
+                  className="w-full py-1.5 px-2 rounded-lg bg-black/40 border border-white/20 text-xs font-bold text-white focus:outline-none"
+                >
+                  {registeredStores.map((st) => (
+                    <option key={st.id} value={st.id} className="bg-slate-900 text-white">
+                      {st.name} ({st.branch})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Quick System Status Highlights */}

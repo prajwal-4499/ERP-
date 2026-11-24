@@ -1039,6 +1039,101 @@ export const api = {
     const lowStockItems = allVariants.filter((v) => v.stock <= v.reorderLevel).length;
     const pendingAlterations = mockAlterations.filter((a) => a.status !== 'DELIVERED').length;
 
+    // Garment Department / Segment Revenue Distribution
+    const deptTotals: Record<string, { revenue: number; items: number }> = {
+      'Formal & Casual Menswear': { revenue: 0, items: 0 },
+      'Womenswear & Pure Silk Sarees': { revenue: 0, items: 0 },
+      'Kids & Teen Festive Wear': { revenue: 0, items: 0 },
+      'Suiting & Shirting Fabrics': { revenue: 0, items: 0 },
+      'Tailoring & Custom Stitching': { revenue: 0, items: 0 },
+    };
+
+    mockInvoices.forEach((inv) => {
+      inv.items.forEach((item) => {
+        const name = (item.articleName || '').toLowerCase();
+        const amt = item.totalAmount || (item.unitPrice * item.quantity);
+        const qty = item.quantity || 1;
+
+        if (name.includes('saree') || name.includes('paithani') || name.includes('kurti') || name.includes('silk') || name.includes('dress') || name.includes('dupatta')) {
+          deptTotals['Womenswear & Pure Silk Sarees'].revenue += amt;
+          deptTotals['Womenswear & Pure Silk Sarees'].items += qty;
+        } else if (name.includes('kid') || name.includes('frock') || name.includes('baba') || name.includes('boy') || name.includes('girl')) {
+          deptTotals['Kids & Teen Festive Wear'].revenue += amt;
+          deptTotals['Kids & Teen Festive Wear'].items += qty;
+        } else if (item.unitType === 'METER' || name.includes('fabric') || name.includes('shirting') || name.includes('suiting') || name.includes('raymond')) {
+          deptTotals['Suiting & Shirting Fabrics'].revenue += amt;
+          deptTotals['Suiting & Shirting Fabrics'].items += qty;
+        } else if (name.includes('alteration') || name.includes('stitch') || name.includes('tailor') || name.includes('fitting')) {
+          deptTotals['Tailoring & Custom Stitching'].revenue += amt;
+          deptTotals['Tailoring & Custom Stitching'].items += qty;
+        } else {
+          deptTotals['Formal & Casual Menswear'].revenue += amt;
+          deptTotals['Formal & Casual Menswear'].items += qty;
+        }
+      });
+    });
+
+    const totalCalcRevenue = Object.values(deptTotals).reduce((sum, d) => sum + d.revenue, 0);
+    const baseRevenue = totalCalcRevenue > 0 ? totalCalcRevenue : (todayRevenue || 124580);
+
+    const revenueBySegment = [
+      {
+        name: 'Formal & Casual Menswear',
+        department: 'Menswear & Denims',
+        value: totalCalcRevenue > 0 ? Math.max(1, Math.round((deptTotals['Formal & Casual Menswear'].revenue / totalCalcRevenue) * 100)) : 42,
+        revenueAmount: totalCalcRevenue > 0 ? Math.round(deptTotals['Formal & Casual Menswear'].revenue) : Math.round(baseRevenue * 0.42),
+        itemsSold: deptTotals['Formal & Casual Menswear'].items || 48,
+        growth: '+24%',
+        margin: '42%',
+        status: 'High Growth',
+        color: '#2563EB',
+      },
+      {
+        name: 'Womenswear & Silk Sarees',
+        department: 'Ethnic & Sarees',
+        value: totalCalcRevenue > 0 ? Math.max(1, Math.round((deptTotals['Womenswear & Pure Silk Sarees'].revenue / totalCalcRevenue) * 100)) : 28,
+        revenueAmount: totalCalcRevenue > 0 ? Math.round(deptTotals['Womenswear & Pure Silk Sarees'].revenue) : Math.round(baseRevenue * 0.28),
+        itemsSold: deptTotals['Womenswear & Pure Silk Sarees'].items || 32,
+        growth: '+18%',
+        margin: '48%',
+        status: 'High Margin',
+        color: '#10B981',
+      },
+      {
+        name: 'Kids & Teen Festive Wear',
+        department: 'Kids & Children',
+        value: totalCalcRevenue > 0 ? Math.max(1, Math.round((deptTotals['Kids & Teen Festive Wear'].revenue / totalCalcRevenue) * 100)) : 15,
+        revenueAmount: totalCalcRevenue > 0 ? Math.round(deptTotals['Kids & Teen Festive Wear'].revenue) : Math.round(baseRevenue * 0.15),
+        itemsSold: deptTotals['Kids & Teen Festive Wear'].items || 24,
+        growth: '+12%',
+        margin: '38%',
+        status: 'Stable',
+        color: '#F59E0B',
+      },
+      {
+        name: 'Suiting & Shirting Fabrics',
+        department: 'Cut-Piece / Meter Fabrics',
+        value: totalCalcRevenue > 0 ? Math.max(1, Math.round((deptTotals['Suiting & Shirting Fabrics'].revenue / totalCalcRevenue) * 100)) : 10,
+        revenueAmount: totalCalcRevenue > 0 ? Math.round(deptTotals['Suiting & Shirting Fabrics'].revenue) : Math.round(baseRevenue * 0.10),
+        itemsSold: deptTotals['Suiting & Shirting Fabrics'].items || 18,
+        growth: '+15%',
+        margin: '35%',
+        status: 'Popular',
+        color: '#8B5CF6',
+      },
+      {
+        name: 'Tailoring & Stitching',
+        department: 'Bespoke Tailoring',
+        value: totalCalcRevenue > 0 ? Math.max(1, Math.round((deptTotals['Tailoring & Custom Stitching'].revenue / totalCalcRevenue) * 100)) : 5,
+        revenueAmount: totalCalcRevenue > 0 ? Math.round(deptTotals['Tailoring & Custom Stitching'].revenue) : Math.round(baseRevenue * 0.05),
+        itemsSold: deptTotals['Tailoring & Custom Stitching'].items || 12,
+        growth: '+9%',
+        margin: '62%',
+        status: 'Consistent',
+        color: '#EC4899',
+      },
+    ];
+
     return {
       todayRevenue,
       todayProfit,
@@ -1050,6 +1145,7 @@ export const api = {
       stockValue,
       lowStockItems,
       pendingAlterations,
+      revenueBySegment,
     };
   },
 };

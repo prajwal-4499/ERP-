@@ -64,11 +64,13 @@
    - 7.4 Backend Setup (H2 Embedded vs MySQL Production)
    - 7.5 Docker Containerized Deployment
    - 7.6 Environment Variables & Configuration Dictionary
+   - 7.7 Operational Maintenance & Helper Scripts
 8. [Error Handling, Security & Edge Cases](#8-error-handling-security--edge-cases)
    - 8.1 Authentication & Manager Authorization PIN
    - 8.2 Client Sandbox Security Architecture
    - 8.3 POS Billing Edge Cases & Failsafes
    - 8.4 Data Integrity, Khata Balance & Concurrency Guarantees
+   - 8.5 Full-System Bug Audit, Edge-Case Hardening & Resolution Catalog
 
 ---
 
@@ -700,6 +702,7 @@ d:\ERP SYSTEM
 ├── Build_Windows_EXE.bat                           # 1-Click Windows Production .EXE Compiler
 ├── Launch_Desktop_App.bat                          # Desktop Launcher (Electron Dev Shell)
 ├── Cloth_Shop_ERP_Desktop_Master_Specification 01.md # Master System Specification
+├── BUG_AUDIT_AND_FIX_REPORT.md                     # Comprehensive Bug Audit & Remediation Log (16/16 Resolved)
 ├── SYSTEM_DOCUMENTATION.md                         # Comprehensive System Architecture (This File)
 │
 ├── backend                                         # Java Spring Boot 3.2.5 REST Backend Service
@@ -797,7 +800,9 @@ d:\ERP SYSTEM
 │       │
 │       ├── utils                                   # Helper Utilities
 │       │   ├── billGenerator.ts                    # jsPDF Vector Invoicing & Text QR Code Engine
-│       │   └── whatsappShare.ts                    # Bi-Lingual (EN/MR) WhatsApp Dispatcher
+│       │   ├── whatsappShare.ts                    # Bi-Lingual (EN/MR) WhatsApp Dispatcher
+│       │   ├── useFocusTrap.ts                     # Modal Focus Trapping & Auto-Focus Return
+│       │   └── useTableKeyboardNav.ts              # Universal Arrow-Key Table Navigation Hook
 │       │
 │       ├── components                              # Reusable Modular UI Components
 │       │   ├── common
@@ -852,6 +857,12 @@ d:\ERP SYSTEM
 | `frontend/src/components/pos/PaymentModal.tsx` | Tender settlement modal supporting Cash change calculation, UPI references, Split balances, and Khata credit limits. |
 | `frontend/src/components/matrix/SizeColorMatrixModal.tsx` | Garment variant generator creating $(Colors \times Sizes)$ variant combinations with automated SKUs and barcodes. |
 | `frontend/src/components/invoice/InvoiceEditPinModal.tsx` | Security modal requiring PIN 1234 and an audit reason to unlock and modify completed bills. |
+| `frontend/src/utils/useFocusTrap.ts` | Accessible focus trapping hook ensuring Tab/Shift+Tab remain within open modal bounds and automatically restores focus to POS search input upon close. |
+| `frontend/src/utils/useTableKeyboardNav.ts` | Keyboard navigation hook enabling ArrowUp/ArrowDown/Home/End navigation and Enter selection across all data tables. |
+| `BUG_AUDIT_AND_FIX_REPORT.md` | Comprehensive system audit report logging 16 edge cases, root cause analyses, reproduction paths, and verified resolutions. |
+| `scripts/start-erp.bat` | Windows counter helper script launching the ERP frontend development server with network host exposure. |
+| `scripts/stop-erp.bat` | Process management script cleanly terminating running Node.js counter services. |
+| `scripts/restart-erp.bat` | Graceful restart script executing stop, cooldown, and start sequence. |
 
 ---
 
@@ -1334,6 +1345,28 @@ This launches:
 | `app.tax.sgst-rate` | `2.5` | State GST component (%) |
 | `app.tax.hsn-code-default` | `6205` | Default HSN code for men's cotton shirts |
 
+### 7.7 Operational Maintenance & Helper Scripts
+To simplify daily retail counter operations and system maintenance, dedicated Windows batch scripts are provided in the `scripts/` directory:
+
+1. **`scripts/start-erp.bat`:**
+   - Navigates to `frontend/` and starts the Vite development / counter server with network exposure (`npm run dev -- --host`).
+   - Run daily at shop opening:
+     ```cmd
+     scripts\start-erp.bat
+     ```
+
+2. **`scripts/stop-erp.bat`:**
+   - Safely terminates all running Node.js / Electron counter processes without risking file lock corruption:
+     ```cmd
+     scripts\stop-erp.bat
+     ```
+
+3. **`scripts/restart-erp.bat`:**
+   - Performs a clean restart by calling `stop-erp.bat`, pausing for 2 seconds to release port locks, and invoking `start-erp.bat`.
+
+4. **`Build_Windows_EXE.bat`:**
+   - Automates the full production packaging pipeline: executes TypeScript type-checking (`tsc -b`), bundles optimized assets (`vite build`), and packages the standalone `ClothShopERP.exe` application folder using `@electron/packager`.
+
 ---
 
 ## 8. Error Handling, Security & Edge Cases
@@ -1389,6 +1422,28 @@ All top system menus are stripped via `Menu.setApplicationMenu(null)` to prevent
 - **Double-Entry Balance Invariants:** Every customer transaction updates `CustomerLedgerEntry` and `customer.outstandingBalance` simultaneously. Customer payments decrease the debt balance; credit sales increase it.
 - **Supplier Ledger Invariants:** Supplier purchase bills (`PURCHASE_CREDIT`) increase `supplier.outstandingPayable`, while recorded payments (`PAYMENT_MADE`) decrease it.
 - **Immutable Audit Trail:** Modifying an invoice does not overwrite historical records destructively. Instead, it records old and new JSON snapshots in `audit_logs` and flags the invoice status as `EDITED`.
+
+### 8.5 Full-System Bug Audit, Edge-Case Hardening & Resolution Catalog
+In November 2026, a comprehensive engineering audit identified 16 bugs and native desktop gaps across the system. All 16 were resolved, verified, and documented in [BUG_AUDIT_AND_FIX_REPORT.md](file:///d:/ERP%20SYSTEM/BUG_AUDIT_AND_FIX_REPORT.md):
+
+| Bug ID | Module | Severity | Root Cause & Edge Case | Applied Fix & Failsafe | Status |
+| :--- | :--- | :---: | :--- | :--- | :---: |
+| **BUG-001** | Inventory & POS | `Critical` | Fabric meters were truncated by `Math.round()`. Selling `1.25m` deducted only `1m`, corrupting stock valuation. | Implemented 2-decimal floating point stock calculation `(v.stock - item.quantity).toFixed(2)` for sales and returns. | **RESOLVED** |
+| **BUG-002** | Accounting & Khata | `Critical` | Split payments with credit bypassed customer credit limits because only pure `CREDIT` mode was checked. | Enforced credit limit check across effective credit portion `(paymentMode === 'CREDIT' ? grandTotal : splitDetails.credit)`. | **RESOLVED** |
+| **BUG-003** | Cash Shifts | `Critical` | Cash portions of split payments and customer cash Khata repayments were omitted from cash drawer math. | Accumulated split cash, cash repayments, and cash refunds into `mockCashShift.cashSales`, `cashReceived`, and `expectedCash`. | **RESOLVED** |
+| **BUG-004** | POS & Exchange | `High` | When return total exceeded new purchase, Store Credit Note fields were omitted by `PaymentModal.tsx`. | Forwarded `creditNoteIssued`, `creditNoteRedeemed`, and `returnRefInvoiceNumber` to `api.createInvoice()` from `PaymentModal`. | **RESOLVED** |
+| **BUG-005** | Desktop Shell | `High` | Missing Electron single-instance lock allowed multiple duplicate processes, risking database/printer lock crashes. | Implemented `app.requestSingleInstanceLock()` and `second-instance` handler in `main.cjs` to focus existing window. | **RESOLVED** |
+| **BUG-006** | Desktop Shell | `High` | Window size and position reset to 1366x768 on every launch. | Implemented `window-state.json` persistence in `userData` storing `width`, `height`, `x`, `y`, and `isMaximized`. | **RESOLVED** |
+| **BUG-007** | Desktop Shell | `High` | WhatsApp and external URLs opened blank Electron BrowserWindow windows instead of host OS browser. | Intercepted via `setWindowOpenHandler` and routed through `shell.openExternal()` to launch in default browser / WhatsApp Desktop. | **RESOLVED** |
+| **BUG-008** | Desktop Shell | `Medium` | Right-click context menu was missing; operators could not Cut, Copy, or Paste with mouse. | Added native right-click context menu in `main.cjs` with Cut, Copy, Paste, and Select All on editable DOM targets. | **RESOLVED** |
+| **BUG-009** | POS Billing | `Medium` | Laser scanner emitted rapid barcodes before search input cleared, concatenating barcodes and failing lookups. | Cleared search query, reset selection index, and retained focus immediately upon item addition in `POSPage.tsx`. | **RESOLVED** |
+| **BUG-010** | POS Billing | `Medium` | Negotiated custom bill total was not cleared when subsequent garments were added, causing under-billing. | Added synchronization effect in `POSPage.tsx` clearing stale `customTotal` and `discountValue` on cart item mutations. | **RESOLVED** |
+| **BUG-011** | Desktop Shell | `Medium` | CSV/Excel exports used browser blob URLs without native Windows Save Dialogs; no printer diagnostics. | Implemented `showSaveDialog`, `writeFileToDisk`, and `checkPrinterStatus` IPC channels in `main.cjs` and `preload.cjs`. | **RESOLVED** |
+| **BUG-012** | UI Ergonomics | `Medium` | Modals lacked focus trapping; pressing Tab escaped into background sidebar and lost POS search focus. | Implemented `useFocusTrap.ts` trapping Tab/Shift+Tab and restoring focus to `#pos-barcode-search` upon Escape/close. | **RESOLVED** |
+| **BUG-013** | POS Billing | `Low` | Accidental window close or page refresh immediately discarded active uncommitted shopping carts. | Added `beforeunload` listener in `POSPage.tsx` alerting cashier if active items remain in the cart. | **RESOLVED** |
+| **BUG-014** | UI Layout | `Low` | Cashiers lacked an on-screen reference for active function keys during high-speed checkout. | Added compact 32px bottom shortcut cheat-sheet footer in `AppLayout.tsx` (`F2`, `F3`, `F4`, `F5`, `F6`, `F8`, `F10`, `↑↓`, `Esc`). | **RESOLVED** |
+| **BUG-015** | Cart Engine | `High` | `updateQuantity` in `cartStore.ts` bypassed negative stock guardrail when clicking `+` or typing quantity. | Stored `maxStock` in `CartItem` and enforced inventory availability limits inside `updateQuantity` when `blockNegativeStock` is enabled. | **RESOLVED** |
+| **BUG-016** | POS Engine | `Medium` | Percentage item discounts were subtracted as flat rupees in `api.ts` (e.g. 10% deducted ₹10 instead of ₹200). | Dynamically computed percentage discount `(gross * discount) / 100` vs flat discount in `api.ts`, matching cart totals. | **RESOLVED** |
 
 ---
 

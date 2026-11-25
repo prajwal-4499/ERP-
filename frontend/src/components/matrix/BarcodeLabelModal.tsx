@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Tag, Printer, Sparkles, X, CheckSquare, Square } from 'lucide-react';
 import { ProductVariant } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface BarcodeLabelModalProps {
   variants: ProductVariant[];
@@ -13,6 +14,10 @@ export const BarcodeLabelModal: React.FC<BarcodeLabelModalProps> = ({
   onClose,
 }) => {
   const { activeStore } = useAuthStore();
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+  });
   const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>(
     variants.slice(0, 4).map((v) => v.id)
   );
@@ -32,7 +37,10 @@ export const BarcodeLabelModal: React.FC<BarcodeLabelModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div
+        ref={modalRef}
+        className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+      >
         {/* Header */}
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

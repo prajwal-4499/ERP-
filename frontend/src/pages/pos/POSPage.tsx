@@ -24,7 +24,9 @@ import { api } from '../../services/api';
 import { ProductVariant, Customer, Invoice, PaymentMode, StoreCreditNote } from '../../types';
 import { BillReviewModal } from '../../components/pos/BillReviewModal';
 import { InvoiceEditPinModal } from '../../components/invoice/InvoiceEditPinModal';
+import { PaymentModal } from '../../components/pos/PaymentModal';
 import { useAuthStore } from '../../stores/authStore';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface POSPageProps {
   onNavigateTab?: (tab: string) => void;
@@ -86,6 +88,7 @@ export const POSPage: React.FC<POSPageProps> = () => {
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [showRecentInvoicesModal, setShowRecentInvoicesModal] = useState(false);
   const [editInvoiceTarget, setEditInvoiceTarget] = useState<Invoice | null>(null);
+  const [paymentModalMode, setPaymentModalMode] = useState<'CASH' | 'DIGITAL' | 'SPLIT' | null>(null);
 
   // Exchange / Return Mode (F4)
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -97,6 +100,15 @@ export const POSPage: React.FC<POSPageProps> = () => {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const productListRef = useRef<HTMLDivElement>(null);
+
+  const exchangeModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: showExchangeModal,
+    onClose: () => {
+      setShowExchangeModal(false);
+      searchInputRef.current?.focus();
+    },
+    returnFocusSelector: '#pos-barcode-search',
+  });
 
   useEffect(() => {
     api.getAllVariants().then((variants) => {
@@ -111,6 +123,56 @@ export const POSPage: React.FC<POSPageProps> = () => {
     setSalesmanName(selectedSalesman);
     searchInputRef.current?.focus();
   }, []);
+
+  // Sync / Reset customTotal when items change to prevent stale discount calculations
+  useEffect(() => {
+    if (items.length === 0) {
+      setCustomTotal('');
+      setDiscountValue('');
+    }
+  }, [items.length]);
+
+  // Unsaved Cart Guard: Warn on window close if items are present
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (items.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have items in the active POS cart. Close window?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [items.length]);
+
+  // Global & IPC Event Listeners (F3 Search, F4 Exchange, F5/F6/F8 Payment)
+  useEffect(() => {
+    const handleOpenPayment = (e: Event) => {
+      const customEvt = e as CustomEvent<{ mode: 'CASH' | 'DIGITAL' | 'SPLIT' }>;
+      if (items.length > 0) {
+        setPaymentModalMode(customEvt.detail?.mode || 'CASH');
+      }
+    };
+
+    const handleFocusSearch = () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+
+    const handleOpenExchange = () => {
+      setShowExchangeModal(true);
+    };
+
+    window.addEventListener('pos:open-payment', handleOpenPayment);
+    window.addEventListener('pos:focus-search', handleFocusSearch);
+    window.addEventListener('pos:open-exchange', handleOpenExchange);
+
+    return () => {
+      window.removeEventListener('pos:open-payment', handleOpenPayment);
+      window.removeEventListener('pos:focus-search', handleFocusSearch);
+      window.removeEventListener('pos:open-exchange', handleOpenExchange);
+    };
+  }, [items.length]);
 
   // F4 Global Shortcut Listener for Exchange Mode
   useEffect(() => {
@@ -212,6 +274,9 @@ export const POSPage: React.FC<POSPageProps> = () => {
       e.preventDefault();
       if (filteredVariants[selectedProductIndex]) {
         handleAddItemToCart(filteredVariants[selectedProductIndex], 1);
+        setSearchInput('');
+        setSelectedProductIndex(0);
+        searchInputRef.current?.focus();
       }
     }
   };
@@ -439,6 +504,7 @@ export const POSPage: React.FC<POSPageProps> = () => {
           {/* Search Box */}
           <div className="relative">
             <input
+              id="pos-barcode-search"
               ref={searchInputRef}
               type="text"
               placeholder="Search product name, SKU, size, or color (↑↓ + Enter)"
@@ -964,12 +1030,52 @@ export const POSPage: React.FC<POSPageProps> = () => {
             </div>
           </div>
 
+          {/* Quick Payment Settlement Hotkeys */}
+          <div className="grid grid-cols-3 gap-2 pt-2">
+            <button
+              type="button"
+              disabled={items.length === 0}
+              onClick={() => setPaymentModalMode('CASH')}
+              className="py-2.5 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-40"
+              title="Cash Settlement (F5)"
+            >
+              <Banknote className="w-4 h-4 text-emerald-600" />
+              <span>Cash (F5)</span>
+            </button>
+            <button
+              type="button"
+              disabled={items.length === 0}
+              onClick={() => setPaymentModalMode('DIGITAL')}
+              className="py-2.5 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-40"
+              title="UPI / QR Settlement (F6)"
+            >
+              <Receipt className="w-4 h-4 text-blue-600" />
+              <span>UPI / QR (F6)</span>
+            </button>
+            <button
+              type="button"
+              disabled={items.length === 0}
+              onClick={() => setPaymentModalMode('SPLIT')}
+              className="py-2.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-40"
+              title="Split Tender (F8)"
+            >
+              <Ticket className="w-4 h-4 text-purple-600" />
+              <span>Split (F8)</span>
+            </button>
+          </div>
+
           {/* Complete Sale Button */}
           <button
             type="button"
             disabled={items.length === 0}
-            onClick={handleCompleteSale}
-            className="w-full py-3.5 px-4 rounded-xl bg-[#1b5e4a] hover:bg-[#14493a] text-white font-bold text-sm shadow-xs transition disabled:opacity-50 mt-3 flex items-center justify-center gap-2"
+            onClick={() => {
+              if (customTotal !== '') {
+                handleCompleteSale();
+              } else {
+                setPaymentModalMode('CASH');
+              }
+            }}
+            className="w-full py-3.5 px-4 rounded-xl bg-[#1b5e4a] hover:bg-[#14493a] text-white font-bold text-sm shadow-xs transition disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
           >
             <span>Complete sale</span>
             {items.length > 0 && (
@@ -980,6 +1086,21 @@ export const POSPage: React.FC<POSPageProps> = () => {
           </button>
         </div>
       </div>
+
+      {/* POS Payment Settlement Modal */}
+      {paymentModalMode && (
+        <PaymentModal
+          initialMode={paymentModalMode}
+          onClose={() => {
+            setPaymentModalMode(null);
+            searchInputRef.current?.focus();
+          }}
+          onInvoiceCreated={(createdInv) => {
+            setPaymentModalMode(null);
+            setReviewInvoice(createdInv);
+          }}
+        />
+      )}
 
       {/* Bill Review / Print Preview Modal */}
       {reviewInvoice && (
@@ -992,7 +1113,10 @@ export const POSPage: React.FC<POSPageProps> = () => {
       {/* F4 Garment Exchange & Return Modal */}
       {showExchangeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+          <div
+            ref={exchangeModalRef}
+            className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+          >
             <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-purple-50/80">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">

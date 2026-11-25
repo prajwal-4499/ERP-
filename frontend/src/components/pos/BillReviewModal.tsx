@@ -13,6 +13,7 @@ import {
   shareBillOnWhatsApp,
 } from '../../utils/whatsappShare';
 import { Download, QrCode, Printer, UserCheck, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface BillReviewModalProps {
   invoice: Invoice;
@@ -22,6 +23,12 @@ interface BillReviewModalProps {
 export const BillReviewModal: React.FC<BillReviewModalProps> = ({ invoice, onClose }) => {
   const { activeStore, user } = useAuthStore();
   const [previewFormat, setPreviewFormat] = useState<'A4' | 'THERMAL'>('A4');
+  
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+    returnFocusSelector: '#pos-barcode-search',
+  });
   
   // Default printer role based on active logged-in user
   const initialRole: PrinterRole =
@@ -392,7 +399,10 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({ invoice, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto font-sans flex flex-col max-h-[94vh]">
+      <div
+        ref={modalRef}
+        className="bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto font-sans flex flex-col max-h-[94vh]"
+      >
         {/* Top Header Bar with Format Selector & Role Indicator */}
         <div className="p-4 bg-gray-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800">
           <div className="flex items-center gap-2.5">

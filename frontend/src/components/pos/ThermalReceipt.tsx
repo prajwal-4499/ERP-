@@ -12,6 +12,7 @@ import {
   shareBillOnWhatsApp,
 } from '../../utils/whatsappShare';
 import { Download, QrCode, MessageSquare } from 'lucide-react';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface ThermalReceiptProps {
   invoice: Invoice;
@@ -25,6 +26,11 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   onPrint,
 }) => {
   const { activeStore, user } = useAuthStore();
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+    returnFocusSelector: '#pos-barcode-search',
+  });
   const initialRole: PrinterRole =
     user?.role === 'MANAGER' || user?.role === 'OWNER' ? 'MANAGER' : 'CASHIER';
   const [printerRole, setPrinterRole] = useState<PrinterRole>(initialRole);
@@ -85,7 +91,10 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-sm w-full shadow-2xl flex flex-col max-h-[92vh]">
+      <div
+        ref={modalRef}
+        className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-sm w-full shadow-2xl flex flex-col max-h-[92vh]"
+      >
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-1.5 text-white font-bold text-sm">
             <QrCode className="w-4 h-4 text-emerald-400" />

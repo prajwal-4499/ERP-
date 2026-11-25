@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, Lock, AlertTriangle, X } from 'lucide-react';
 import { Invoice } from '../../types';
 import { api } from '../../services/api';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface InvoiceEditPinModalProps {
   invoice: Invoice;
@@ -14,6 +15,10 @@ export const InvoiceEditPinModal: React.FC<InvoiceEditPinModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+  });
   const [pin, setPin] = useState('');
   const [reason, setReason] = useState('');
   const [customerName, setCustomerName] = useState(invoice.customerName);
@@ -79,7 +84,10 @@ export const InvoiceEditPinModal: React.FC<InvoiceEditPinModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 overflow-y-auto font-sans">
-      <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+      <div
+        ref={modalRef}
+        className="bg-white border border-gray-200 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto"
+      >
         {/* Header */}
         <div className="p-5 bg-gray-50/80 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

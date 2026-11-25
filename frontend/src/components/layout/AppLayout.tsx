@@ -32,6 +32,7 @@ import { useCartStore } from '../../stores/cartStore';
 import { useShortcutStore } from '../../stores/shortcutStore';
 import { api } from '../../services/api';
 import { User, UserRole } from '../../types';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface AppLayoutProps {
   activeTab: string;
@@ -49,6 +50,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const { shortcuts } = useShortcutStore();
   const [showUserSwitchModal, setShowUserSwitchModal] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
+
+  const switchModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: showUserSwitchModal,
+    onClose: () => setShowUserSwitchModal(false),
+  });
 
   const handleSwitchUser = (targetUser: User) => {
     const oldUser = user;
@@ -345,12 +351,64 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {children}
           </div>
         </main>
+
+        {/* Keyboard Shortcut Cheat-Sheet Footer */}
+        <footer className="h-8 bg-slate-900 border-t border-slate-800 px-4 flex items-center justify-between text-[11px] font-mono text-slate-300 select-none flex-shrink-0 z-20">
+          <div className="flex items-center gap-3 overflow-x-auto py-0.5">
+            <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] hidden md:inline">Hotkeys:</span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 font-bold border border-slate-700 shadow-xs">F2</kbd>
+              <span className="text-slate-300">New Sale</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 font-bold border border-slate-700 shadow-xs">F3</kbd>
+              <span className="text-slate-300">Search</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 font-bold border border-purple-800 shadow-xs">F4</kbd>
+              <span className="text-slate-300">Exchange</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-800 shadow-xs">F5</kbd>
+              <span className="text-slate-300">Cash</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 font-bold border border-blue-800 shadow-xs">F6</kbd>
+              <span className="text-slate-300">UPI</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-bold border border-slate-700 shadow-xs">F8</kbd>
+              <span className="text-slate-300">Split</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-bold border border-slate-700 shadow-xs">F10</kbd>
+              <span className="text-slate-300">Hold</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 shadow-xs">↑↓</kbd>
+              <span className="text-slate-300">Navigate</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-rose-400 font-bold border border-slate-700 shadow-xs">Esc</kbd>
+              <span className="text-slate-300">Close</span>
+            </span>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              <span>POS Active: {activeStore.branch}</span>
+            </span>
+          </div>
+        </footer>
       </div>
 
       {/* Switch User Modal */}
       {showUserSwitchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5">
+          <div
+            ref={switchModalRef}
+            className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">

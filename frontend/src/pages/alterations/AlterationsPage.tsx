@@ -7,10 +7,13 @@ import {
 } from 'lucide-react';
 import { Alteration } from '../../types';
 import { api } from '../../services/api';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 export const AlterationsPage: React.FC = () => {
   const [alterations, setAlterations] = useState<Alteration[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [newModalOpen, setNewModalOpen] = useState(false);
+  const newModalRef = useFocusTrap(newModalOpen, () => setNewModalOpen(false));
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -92,12 +95,30 @@ export const AlterationsPage: React.FC = () => {
       </div>
 
       {/* Alterations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {alterations.map((alt) => (
-          <div
-            key={alt.id}
-            className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-3 flex flex-col justify-between hover:shadow-md transition"
-          >
+      <div
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (alterations.length === 0) return;
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex((prev) => Math.min(alterations.length - 1, prev + 1));
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex((prev) => Math.max(0, prev - 1));
+          }
+        }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 focus:outline-none"
+      >
+        {alterations.map((alt, idx) => {
+          const isSelected = selectedIndex === idx;
+          return (
+            <div
+              key={alt.id}
+              onClick={() => setSelectedIndex(idx)}
+              className={`p-5 rounded-2xl bg-white border shadow-sm space-y-3 flex flex-col justify-between hover:shadow-md transition ${
+                isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-200'
+              }`}
+            >
             <div>
               <div className="flex justify-between items-start">
                 <div>
@@ -169,13 +190,14 @@ export const AlterationsPage: React.FC = () => {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* New Alteration Modal */}
       {newModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+          <div ref={newModalRef} className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
               <h3 className="font-extrabold text-base text-[#1F2937]">Create Alteration Order</h3>
               <button

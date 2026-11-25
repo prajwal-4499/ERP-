@@ -359,10 +359,17 @@ export const api = {
     const assignedCustomerName = targetCust ? targetCust.name : (invoiceData.customerName || 'Walk-in Customer');
     const assignedCustomerPhone = targetCust ? targetCust.phone : invoiceData.customerPhone;
 
-    // Check Credit Limit
-    if (invoiceData.paymentMode === 'CREDIT' && targetCust) {
-      if (targetCust.outstandingBalance + (invoiceData.grandTotal || 0) > targetCust.creditLimit) {
-        throw new Error(`Credit limit exceeded! Limit: ₹${targetCust.creditLimit}, Current Debt: ₹${targetCust.outstandingBalance}`);
+    // Check Credit Limit across full Credit sale and Split Credit portions
+    const creditPortion =
+      invoiceData.paymentMode === 'CREDIT'
+        ? (invoiceData.grandTotal || 0)
+        : (invoiceData.splitDetails?.credit || 0);
+
+    if (creditPortion > 0 && targetCust) {
+      if (targetCust.outstandingBalance + creditPortion > targetCust.creditLimit) {
+        throw new Error(
+          `Credit limit exceeded! Limit: ₹${targetCust.creditLimit}, Current Debt: ₹${targetCust.outstandingBalance}, New Credit: ₹${creditPortion}`
+        );
       }
     }
 
@@ -382,7 +389,12 @@ export const api = {
     let igstTotal = 0;
 
     const formattedItems = (invoiceData.items || []).map((it, idx) => {
-      const lineNet = Math.max(0, it.totalAmount || (it.unitPrice * it.quantity - it.discount));
+      const gross = it.unitPrice * it.quantity;
+      const discVal =
+        (it as any).discountType === 'PERCENT'
+          ? (gross * (it.discount || 0)) / 100
+          : it.discount || 0;
+      const lineNet = Math.max(0, it.totalAmount !== undefined ? Math.abs(it.totalAmount) : gross - discVal);
       const perPiecePrice = it.quantity > 0 ? lineNet / it.quantity : lineNet;
 
       // Indian Apparel GST slab rule: < 1000 => 5%, >= 1000 => 12%
@@ -471,15 +483,15 @@ export const api = {
 
     mockInvoices.unshift(newInv);
 
-    // 1. Stock Updates & Movements
+    // 1. Stock Updates & Movements (Supports exact fractional meter quantities for fabrics)
     newInv.items.forEach((item) => {
       mockProducts.forEach((p) => {
         const v = p.variants.find((vr) => vr.barcode === item.barcode || vr.sku === item.sku);
         if (v) {
           if (item.isReturn) {
-            v.stock += Math.round(item.quantity);
+            v.stock = Number((v.stock + item.quantity).toFixed(2));
           } else {
-            v.stock = Math.max(0, v.stock - Math.round(item.quantity));
+            v.stock = Number(Math.max(0, v.stock - item.quantity).toFixed(2));
             v.lastSoldAt = new Date().toISOString();
           }
         }
@@ -535,11 +547,18 @@ export const api = {
       targetCust.loyaltyPoints += Math.floor(newInv.grandTotal / 100);
     }
 
-    // 5. Cash Shift Drawer Update
-    if (newInv.paymentMode === 'CASH') {
-      mockCashShift.cashSales += newInv.paidAmount;
-      mockCashShift.expectedCash += newInv.paidAmount;
-      mockCashShift.actualCash += newInv.paidAmount;
+    // 5. Cash Shift Drawer Update (Supports both CASH mode and SPLIT cash portions)
+    const cashPortion =
+      newInv.paymentMode === 'CASH'
+        ? newInv.paidAmount
+        : newInv.paymentMode === 'SPLIT'
+        ? newInv.splitDetails?.cash || 0
+        : 0;
+
+    if (cashPortion > 0) {
+      mockCashShift.cashSales += cashPortion;
+      mockCashShift.expectedCash += cashPortion;
+      mockCashShift.actualCash += cashPortion;
     }
 
     persistAll();
@@ -628,6 +647,11 @@ export const api = {
 
     if (type === 'PAYMENT_RECEIVED') {
       cust.outstandingBalance = Math.max(0, cust.outstandingBalance - amount);
+      if (mode === 'CASH') {
+        mockCashShift.cashReceived += amount;
+        mockCashShift.expectedCash += amount;
+        mockCashShift.actualCash += amount;
+      }
       mockCustomerLedger.unshift({
         id: Date.now(),
         customerId,
@@ -644,6 +668,11 @@ export const api = {
       api.addAuditLog('CUSTOMER_PAYMENT_REC', 'CUSTOMERS', String(customerId), `Payment received of ₹${amount} via ${mode}`);
     } else if (type === 'PAYMENT_GIVEN') {
       cust.outstandingBalance += amount;
+      if (mode === 'CASH') {
+        mockCashShift.cashRefunds += amount;
+        mockCashShift.expectedCash -= amount;
+        mockCashShift.actualCash -= amount;
+      }
       mockCustomerLedger.unshift({
         id: Date.now(),
         customerId,

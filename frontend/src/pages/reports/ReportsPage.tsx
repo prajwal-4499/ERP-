@@ -61,8 +61,8 @@ export const ReportsPage: React.FC = () => {
     setAgingStock(data);
   };
 
-  const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
+  const handleExportCSV = async () => {
+    let csvContent = '';
     if (reportType === 'SALES') {
       csvContent += 'Invoice Number,Date,Customer,Mode,Discount,Tax,Grand Total,Status\n';
       invoices.forEach((inv) => {
@@ -84,10 +84,37 @@ export const ReportsPage: React.FC = () => {
       csvContent += '6203,Denim Trousers & Jeans,48200.00,1205.00,1205.00,2410.00\n';
     }
 
-    const encodedUri = encodeURI(csvContent);
+    const defaultFilename = `ClothShop_${reportType}_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    if (window.electronAPI?.showSaveDialog && window.electronAPI?.writeFileToDisk) {
+      try {
+        const saveRes = await window.electronAPI.showSaveDialog({
+          title: `Export ${reportType} Report`,
+          defaultPath: defaultFilename,
+          filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+        });
+        if (!saveRes?.canceled && saveRes?.filePath) {
+          const res = await window.electronAPI.writeFileToDisk({
+            filePath: saveRes.filePath,
+            content: csvContent,
+          });
+          if (res?.success) {
+            alert(`Report exported successfully to: ${saveRes.filePath}`);
+            return;
+          }
+        } else {
+          return; // User cancelled
+        }
+      } catch (err) {
+        console.error('Electron save dialog failed, falling back to browser download:', err);
+      }
+    }
+
+    // Web browser fallback
+    const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `ClothShop_${reportType}_Report.csv`);
+    link.setAttribute('download', defaultFilename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -101,6 +128,17 @@ export const ReportsPage: React.FC = () => {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedInvoiceIndex((prev) => Math.max(0, prev - 1));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setSelectedInvoiceIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setSelectedInvoiceIndex(invoices.length - 1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (invoices[selectedInvoiceIndex]) {
+        setPreviewInvoice(invoices[selectedInvoiceIndex]);
+      }
     }
   };
 

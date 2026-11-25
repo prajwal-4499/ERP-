@@ -13,6 +13,7 @@ import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
 import { Invoice, PaymentMode, SplitPayment } from '../../types';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface PaymentModalProps {
   initialMode?: 'CASH' | 'DIGITAL' | 'SPLIT' | 'CREDIT';
@@ -25,9 +26,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   onInvoiceCreated,
 }) => {
-  const { items, customer, discountType, getTotals, clearCart } = useCartStore();
+  const { items, customer, discountType, getTotals, clearCart, salesmanName } = useCartStore();
   const { user, activeStore } = useAuthStore();
   const totals = getTotals();
+
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+    returnFocusSelector: '#pos-barcode-search',
+  });
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(
     initialMode === 'DIGITAL' ? 'UPI' : initialMode === 'SPLIT' ? 'SPLIT' : initialMode === 'CREDIT' ? 'CREDIT' : 'CASH'
@@ -80,15 +87,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setError(null);
       setIsProcessing(true);
 
-      if (paymentMode === 'CREDIT') {
+      const creditPortion =
+        paymentMode === 'CREDIT' ? totals.grandTotal : paymentMode === 'SPLIT' ? splitDetails.credit || 0 : 0;
+
+      if (creditPortion > 0) {
         if (!customer) {
           setError('Customer profile is mandatory for Credit / Khata sales.');
           setIsProcessing(false);
           return;
         }
-        if (customer.outstandingBalance + totals.grandTotal > customer.creditLimit) {
+        if (customer.outstandingBalance + creditPortion > customer.creditLimit) {
           setError(
-            `Credit limit exceeded! Limit: ₹${customer.creditLimit}, Current Due: ₹${customer.outstandingBalance}, Bill: ₹${totals.grandTotal}`
+            `Credit limit exceeded! Limit: ₹${customer.creditLimit}, Current Due: ₹${customer.outstandingBalance}, New Credit: ₹${creditPortion}`
           );
           setIsProcessing(false);
           return;
@@ -107,6 +117,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         return;
       }
 
+      // Check if returns exceed purchases => Credit Note to be issued
+      const netPayable = totals.taxableAmount + totals.taxAmount - totals.returnTotal - totals.creditNoteRedeemed;
+      const creditNoteToIssue = netPayable < 0 ? Math.round(Math.abs(netPayable)) : 0;
+
+      const effectivePaid =
+        paymentMode === 'CREDIT'
+          ? 0
+          : paymentMode === 'SPLIT'
+          ? totals.grandTotal - (splitDetails.credit || 0)
+          : totals.grandTotal;
+
+      const effectiveBalance =
+        paymentMode === 'CREDIT'
+          ? totals.grandTotal
+          : paymentMode === 'SPLIT'
+          ? splitDetails.credit || 0
+          : 0;
+
       const invoicePayload: Partial<Invoice> = {
         invoiceType: 'RETAIL',
         customerId: customer?.id,
@@ -114,6 +142,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         customerPhone: customer?.phone,
         cashierId: user?.id || 1,
         cashierName: user?.fullName || 'Cashier',
+        salesmanName: salesmanName || user?.fullName || 'Counter Staff',
         branchName: activeStore?.branch || activeStore?.name || 'Pargaon (Mangrul)',
         subtotal: totals.subtotal,
         itemDiscountTotal: totals.itemDiscountTotal,
@@ -125,11 +154,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         igstAmount: totals.igstAmount,
         isInterState: totals.isInterState,
         grandTotal: totals.grandTotal,
-        paidAmount: paymentMode === 'CREDIT' ? 0 : totals.grandTotal,
-        balanceAmount: paymentMode === 'CREDIT' ? totals.grandTotal : 0,
+        paidAmount: effectivePaid,
+        balanceAmount: effectiveBalance,
         paymentMode: paymentMode,
         splitDetails: paymentMode === 'SPLIT' ? splitDetails : undefined,
-        status: paymentMode === 'CREDIT' ? 'CREDIT' : 'COMPLETED',
+        status: effectiveBalance > 0 ? 'CREDIT' : 'COMPLETED',
+        creditNoteIssued: creditNoteToIssue > 0 ? creditNoteToIssue : undefined,
+        creditNoteRedeemed: totals.creditNoteRedeemed > 0 ? totals.creditNoteRedeemed : undefined,
         createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
         items: items.map((i, idx) => ({
           id: idx + 1,
@@ -144,7 +175,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           totalAmount: i.isReturn ? -i.total : i.total,
           unitType: i.unitType || 'PCS',
           hsnCode: i.hsnCode || '6205',
-          salesmanName: i.salesmanName,
+          salesmanName: i.salesmanName || salesmanName,
           isReturn: i.isReturn || false,
         })),
       };
@@ -184,7 +215,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-100">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div
+        ref={modalRef}
+        className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden"
+      >
         {/* Header */}
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

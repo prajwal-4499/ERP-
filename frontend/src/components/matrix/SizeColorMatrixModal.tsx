@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layers, Plus, Sparkles, X, CheckCircle } from 'lucide-react';
 import { Product, ProductVariant } from '../../types';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 interface SizeColorMatrixModalProps {
   onClose: () => void;
@@ -11,6 +12,10 @@ export const SizeColorMatrixModal: React.FC<SizeColorMatrixModalProps> = ({
   onClose,
   onSaveProduct,
 }) => {
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: true,
+    onClose,
+  });
   const [articleName, setArticleName] = useState('');
   const [brand, setBrand] = useState('Louis Philippe');
   const [category, setCategory] = useState('Formal Shirts');
@@ -115,7 +120,10 @@ export const SizeColorMatrixModal: React.FC<SizeColorMatrixModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div
+        ref={modalRef}
+        className="bg-white border border-gray-200 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+      >
         {/* Header */}
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">

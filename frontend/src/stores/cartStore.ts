@@ -141,6 +141,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         hsnCode: variant.hsnCode || '6205',
         salesmanName: salesman || get().salesmanName || '',
         isReturn,
+        maxStock: variant.stock,
       };
       set({ items: [newItem, ...current] });
     }
@@ -161,11 +162,12 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (!item) return { success: false, error: 'Item not found in cart' };
 
     // Stock check
-    if (blockNegativeStock && !item.isReturn) {
-      // Look up variant stock if stored
-      const maxAllowed = 9999;
-      if (qty > maxAllowed) {
-        return { success: false, error: 'Exceeded maximum allowable quantity' };
+    if (blockNegativeStock && !item.isReturn && item.maxStock !== undefined) {
+      if (qty > item.maxStock) {
+        return {
+          success: false,
+          error: `Insufficient stock for ${item.articleName}. In stock: ${item.maxStock}, requested: ${qty}`,
+        };
       }
     }
 

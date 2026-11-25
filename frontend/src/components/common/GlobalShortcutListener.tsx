@@ -83,33 +83,52 @@ export const GlobalShortcutListener: React.FC<GlobalShortcutListenerProps> = ({
           e.preventDefault();
           clearCart();
           onNavigate?.('pos');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('pos:focus-search'));
+          }, 50);
           break;
 
         case 'SEARCH_PRODUCT':
           e.preventDefault();
           onNavigate?.('pos');
-          onFocusSearch?.();
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('pos:focus-search'));
+            onFocusSearch?.();
+          }, 50);
           break;
 
         case 'EXCHANGE_MODE':
           e.preventDefault();
           onNavigate?.('pos');
+          window.dispatchEvent(new CustomEvent('pos:open-exchange'));
           onOpenExchange?.();
           break;
 
         case 'CASH_PAYMENT':
           e.preventDefault();
-          if (items.length > 0) onOpenPaymentModal?.('CASH');
+          onNavigate?.('pos');
+          if (items.length > 0) {
+            window.dispatchEvent(new CustomEvent('pos:open-payment', { detail: { mode: 'CASH' } }));
+            onOpenPaymentModal?.('CASH');
+          }
           break;
 
         case 'DIGITAL_PAYMENT':
           e.preventDefault();
-          if (items.length > 0) onOpenPaymentModal?.('DIGITAL');
+          onNavigate?.('pos');
+          if (items.length > 0) {
+            window.dispatchEvent(new CustomEvent('pos:open-payment', { detail: { mode: 'DIGITAL' } }));
+            onOpenPaymentModal?.('DIGITAL');
+          }
           break;
 
         case 'SPLIT_PAYMENT':
           e.preventDefault();
-          if (items.length > 0) onOpenPaymentModal?.('SPLIT');
+          onNavigate?.('pos');
+          if (items.length > 0) {
+            window.dispatchEvent(new CustomEvent('pos:open-payment', { detail: { mode: 'SPLIT' } }));
+            onOpenPaymentModal?.('SPLIT');
+          }
           break;
 
         case 'HOLD_BILL':

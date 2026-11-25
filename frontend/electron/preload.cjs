@@ -5,4 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printThermal: (options) => ipcRenderer.invoke('print-thermal', options),
   verifyPin: (pin, action, module) => ipcRenderer.invoke('verify-pin', { pin, action, module }),
   getPrinters: () => ipcRenderer.invoke('get-printers'),
+  checkPrinterStatus: (printerName) => ipcRenderer.invoke('check-printer-status', printerName),
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  writeFileToDisk: (payload) => ipcRenderer.invoke('write-file-to-disk', payload),
 });

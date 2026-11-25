@@ -27,3 +27,5 @@ Thumbs.db
 *.dll
 *.pak
 *.bin
+*.lnk
+*.tsbuildinfo

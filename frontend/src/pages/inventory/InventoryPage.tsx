@@ -24,6 +24,7 @@ import {
 import { ProductVariant, Supplier, PurchaseOrder, PurchaseOrderItem, SupplierBill, SupplierBillItem } from '../../types';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+import { useFocusTrap } from '../../utils/useFocusTrap';
 
 export const InventoryPage: React.FC = () => {
   const { activeStore } = useAuthStore();
@@ -84,6 +85,13 @@ export const InventoryPage: React.FC = () => {
   // View Bill Modal
   const [viewBill, setViewBill] = useState<SupplierBill | null>(null);
 
+  // Focus Traps for Modals
+  const adjustModalRef = useFocusTrap(adjustModalOpen, () => setAdjustModalOpen(false));
+  const transferModalRef = useFocusTrap(transferModalOpen, () => setTransferModalOpen(false));
+  const createPOModalRef = useFocusTrap(createPOModalOpen, () => setCreatePOModalOpen(false));
+  const createBillModalRef = useFocusTrap(createBillModalOpen, () => setCreateBillModalOpen(false));
+  const viewBillModalRef = useFocusTrap(!!viewBill, () => setViewBill(null));
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -128,6 +136,20 @@ export const InventoryPage: React.FC = () => {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedVariantIndex((prev) => Math.max(0, prev - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[selectedVariantIndex]) {
+        setSelectedVariant(filtered[selectedVariantIndex]);
+        setAdjustType('ADD');
+        setAdjustQty(1);
+        setAdjustModalOpen(true);
+      }
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setSelectedVariantIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setSelectedVariantIndex(filtered.length - 1);
     }
   };
 
@@ -947,7 +969,7 @@ export const InventoryPage: React.FC = () => {
       {/* CREATE PURCHASE ORDER MODAL */}
       {createPOModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-3xl w-full my-auto space-y-4">
+          <div ref={createPOModalRef} className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-3xl w-full my-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div>
                 <h3 className="font-extrabold text-base text-gray-900">Create New Purchase Order</h3>
@@ -1146,7 +1168,7 @@ export const InventoryPage: React.FC = () => {
       {/* CREATE PURCHASE BILL (INWARD GRN) MODAL */}
       {createBillModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-3xl w-full my-auto space-y-4">
+          <div ref={createBillModalRef} className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-3xl w-full my-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div>
                 <h3 className="font-extrabold text-base text-gray-900">Make Purchase Bill (Inward GRN)</h3>
@@ -1399,7 +1421,7 @@ export const InventoryPage: React.FC = () => {
       {/* VIEW BILL DETAILS MODAL */}
       {viewBill && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-lg w-full space-y-4">
+          <div ref={viewBillModalRef} className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-lg w-full space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
               <span className="font-bold text-xs uppercase tracking-wider text-gray-800">
                 Purchase Bill Details ({viewBill.supplierInvoiceNo})
@@ -1469,7 +1491,7 @@ export const InventoryPage: React.FC = () => {
       {/* Stock Adjustment Modal */}
       {adjustModalOpen && selectedVariant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
+          <div ref={adjustModalRef} className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
             <h3 className="font-bold text-sm text-gray-900">Audit Stock Adjustment</h3>
             <p className="text-xs text-gray-500">
               Adjust quantity for <strong>{selectedVariant.articleName}</strong> ({selectedVariant.sku})
@@ -1545,7 +1567,7 @@ export const InventoryPage: React.FC = () => {
       {/* Stock Transfer Modal */}
       {transferModalOpen && selectedVariant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
+          <div ref={transferModalRef} className="bg-white rounded-3xl border border-gray-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
             <h3 className="font-bold text-sm text-gray-900">Multi-Branch Stock Transfer</h3>
             <p className="text-xs text-gray-500">
               Dispatch <strong>{selectedVariant.articleName}</strong> to another retail branch

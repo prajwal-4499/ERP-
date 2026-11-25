@@ -70,6 +70,7 @@ export interface CartItem {
   igst?: number;
   salesmanName?: string;
   isReturn?: boolean;
+  maxStock?: number;
 }
 
 export interface HeldBill {
@@ -136,6 +137,7 @@ export interface Invoice {
     quantity: number;
     unitPrice: number;
     discount: number;
+    discountType?: 'PERCENT' | 'FLAT';
     totalAmount: number;
     unitType?: 'PCS' | 'METER';
     hsnCode?: string;

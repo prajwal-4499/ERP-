@@ -45,6 +45,7 @@
    - 3.25 Stock Aging & Dead Stock Clearance Engine (60 / 90 / 180+ Days)
    - 3.26 Customer Birthday, Anniversary & Khata Reminder Widget
    - 3.27 Silent ESC/POS Direct Thermal Printing & Negative Stock Guardrails
+   - 3.28 Native Desktop Shell Hardening, Universal Arrow Navigation & Modal Focus Trapping
 4. [Folder & File Structure](#4-folder--file-structure)
    - 4.1 Project Directory Tree
    - 4.2 Detailed Component & File Catalog
@@ -668,6 +669,26 @@ sequenceDiagram
   - `frontend/src/pages/settings/SettingsPage.tsx`
   - `frontend/src/stores/cartStore.ts`
 
+### 3.28 Native Desktop Shell Hardening, Universal Arrow Navigation & Modal Focus Trapping
+- **What It Does:** Delivers a hardened, professional native Windows desktop experience with zero mouse-dependency and OS-level guards:
+  - **Single-Instance Application Lock:** Enforced via `app.requestSingleInstanceLock()`. Prevents accidental duplicate instances of `ClothShopERP.exe` from accessing the same database files or printer hardware; focuses and restores the active window if launched again.
+  - **Window State Persistence:** Automatically records window dimensions, coordinates (`x`, `y`), and maximized state to `window-state.json` inside the user profile data directory, ensuring the app opens exactly where the cashier left it.
+  - **Native Context Menu:** Provides right-click operations (Cut, Copy, Paste, Select All) on all text inputs, search boxes, and textareas across the desktop application.
+  - **External URL Delegation:** External communications (WhatsApp Web links, browser documentation) are intercepted via `setWindowOpenHandler` and delegated cleanly to the host OS default browser using `shell.openExternal()`.
+  - **Native Windows Save Dialogs:** Integrated via `showSaveDialog` and `writeFileToDisk` IPC handlers for direct export of CSV financial reports, inventory aging audits, and backup files to any local or USB drive.
+  - **Modal Focus Trapping (`useFocusTrap.ts`):** Restricts keyboard `Tab` / `Shift+Tab` cycling strictly within modal boundaries. Pressing `Escape` cleanly closes the modal and automatically restores cursor focus to the POS barcode search input (`#pos-barcode-search`).
+  - **Universal Arrow-Key Navigation (`useTableKeyboardNav.ts`):** Seamless `↑`, `↓`, `Home`, `End`, and `Enter` row navigation across all data tables (`Inventory`, `Purchases`, `Customers`, `Reports`, `Alterations`) with high-contrast active-row highlighting.
+  - **Persistent Keyboard Shortcut Footer:** A compact 32px bottom bar on `AppLayout.tsx` providing cashier reference badges for `F2` New Sale, `F3` Search, `F4` Exchange, `F5` Cash, `F6` UPI, `F8` Split, `F10` Hold, `↑↓` Navigate, and `Esc` Close.
+  - **Unsaved Cart Changes Guard:** Catches window close / reload events via `beforeunload` when items exist in the shopping cart, preventing accidental data loss during active sales.
+- **Relevant Files:**
+  - `frontend/electron/main.cjs`
+  - `frontend/electron/preload.cjs`
+  - `frontend/src/utils/useFocusTrap.ts`
+  - `frontend/src/utils/useTableKeyboardNav.ts`
+  - `frontend/src/components/layout/AppLayout.tsx`
+  - `frontend/src/pages/pos/POSPage.tsx`
+  - `frontend/src/pages/reports/ReportsPage.tsx`
+
 ---
 
 ## 4. Folder & File Structure
@@ -1191,6 +1212,9 @@ When running inside the Electron native Windows shell, the frontend accesses har
 | `print-thermal` | Renderer $\rightarrow$ Main | `{ html, printerName?, silent? }` | `{ success: boolean, error?: string }` | Spawns hidden BrowserWindow and executes `webContents.print({ silent: true })` for direct 80mm ESC/POS thermal printing. |
 | `verify-pin` | Renderer $\rightarrow$ Main | `{ pin, action, module }` | `{ valid: boolean }` | Desktop-level cryptographic PIN validation with automatic audit trail recording. |
 | `get-printers` | Renderer $\rightarrow$ Main | None | `List<PrinterInfo>` | Returns all OS-installed local and networked receipt printers. |
+| `check-printer-status` | Renderer $\rightarrow$ Main | None | `{ connected: boolean, printers: string[] }` | Queries printer driver spooler status to verify thermal printers are ready before checkout. |
+| `show-save-dialog` | Renderer $\rightarrow$ Main | `SaveDialogOptions` | `string \| null` | Native Windows File Explorer Save Dialog for exporting CSV/Excel reports and database backups. |
+| `write-file-to-disk` | Renderer $\rightarrow$ Main | `{ filePath: string, content: string }` | `{ success: boolean, error?: string }` | Direct disk file writer saving export payloads to operator-selected destination. |
 
 ### 6.3 Frontend Service API Layer (`api.ts`)
 The client service layer provides an asynchronous interface matching backend contracts:
